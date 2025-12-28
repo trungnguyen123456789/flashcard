@@ -96,14 +96,14 @@
 <button class="menu-btn-trigger" id="menuToggleBtn" onclick="document.getElementById('game-sidebar').classList.toggle('open')">☰</button>
 
 <div id="game-sidebar">
-    <div class="menu-title">Phụ Trợ <span>☰</span></div>
+    <div class="menu-title">Mở Rộng <span>☰</span></div>
     <div class="hp-hearts" id="game-hp">❤️ ❤️ ❤️</div>
     
     <div class="game-item" onclick="toggleSurvival()">
         <span>⚔️ Sinh Tồn (HP)</span> <b id="sv-label" style="margin-left:auto; color:red">OFF</b>
     </div>
     <div class="game-item" onclick="useHint()">
-        <span>🛡️ Gợi Ý (X-Ray)</span> <span id="hint-qty" style="margin-left:auto">2</span>
+        <span>🛡️ Gợi Ý </span> <span id="hint-qty" style="margin-left:auto">2</span>
     </div>
     <div class="game-item" onclick="buildCity()">
         <span>🏠 Xây Thành Phố</span>
@@ -111,18 +111,20 @@
     <div id="city-display"></div>
     
     <div class="game-item" onclick="shuffleWords()">
-        <span>📳 Đổi từ mới</span>
+        <span>📳 Đổi Từ</span>
     </div>
     <div class="game-item" onclick="speakCurrent()">
-        <span>🎤 Phát âm từ</span>
+        <span>🎤 Phát Âm</span>
     </div>
 </div>
 
 <div class="container">
     <div id="setup">
         <div class="section">
-            <h1>Flashcard Tiếng Anh</h1>
-            <p style="font-size: 0.8em; color: gray;">by Trung Nguyen</p>
+            <<div style="text-align: center; margin-bottom: 15px;">
+        <h1 style="margin-bottom: 0;">Flashcard Tiếng Anh 🧠</h1>
+        <p style="font-size: 0.9em; color: gray; margin-top: 5px; font-style: italic;">by Trung Nguyen</p>
+</div>
             <div class="garden-box">
                 <span id="tree-emoji">🌱</span>
                 <div style="font-size: 12px; color: #2ecc71; font-weight: bold;" id="tree-level">Cấp 1: Mầm non</div>
@@ -463,25 +465,36 @@
         startTimer();
     }
 
-    function check() {
+   function check() {
         clearInterval(timerInterval);
         const guessRaw = document.getElementById('guessInput').value.trim();
         let isCorrect = false;
         
         if(mode === 'spelling' || mode === 'reverse') {
+            // Với chính tả và viết lại từ tiếng Anh, vẫn nên yêu cầu chính xác tuyệt đối
             isCorrect = (guessRaw.toLowerCase() === currentWord.word.toLowerCase());
         } else {
+            // CHẾ ĐỘ ĐOÁN NGHĨA: Cho phép đúng một phần
             const guessClean = cleanText(guessRaw);
             const correctAnswers = currentWord.meaning.split(/[,;]/).map(m => m.trim());
+            
             for (let ans of correctAnswers) {
-                if (guessClean === cleanText(ans)) { isCorrect = true; break; }
+                const ansClean = cleanText(ans);
+                // Kiểm tra nếu những gì người dùng nhập nằm trong đáp án hoặc ngược lại
+                if (ansClean.includes(guessClean) || guessClean.includes(ansClean)) { 
+                    if (guessClean.length >= 1) { // Đảm bảo không tính trường hợp nhập trắng
+                        isCorrect = true; 
+                        break; 
+                    }
+                }
             }
         }
         
         if (isCorrect) {
-            document.getElementById('statusMessage').innerHTML = "<span style='color:var(--success)'>Đúng rồi!</span>";
+            document.getElementById('statusMessage').innerHTML = "<span style='color:var(--success)'>Chính xác! ✨</span>";
             sessionWords.shift();
-            // CHUYỂN NHANH KHI ĐÚNG (400ms)
+            // Nếu đúng thì ẩn hintBox đi cho từ tiếp theo
+            document.getElementById('hintBox').style.display = 'none';
             setTimeout(showNext, 400);
         } else {
             handleWrongAnswer();
@@ -489,52 +502,65 @@
     }
 
     function handleWrongAnswer() {
+        // Hiệu ứng rung khi sai
         document.getElementById('flashcard').classList.add('shake');
         setTimeout(() => document.getElementById('flashcard').classList.remove('shake'), 200);
         
+        // Xử lý máu (HP) nếu đang ở chế độ sinh tồn
         if(isSurvival) {
             hp--; updateHP();
             if(hp <= 0) { 
                 clearInterval(timerInterval);
-                document.getElementById('guessInput').disabled = true;
                 alert("GAME OVER! Bạn đã hết máu."); 
                 location.reload(); 
                 return; 
             }
         }
 
+        // Tăng cấp độ sai của từ
         currentWord.failLevel = (currentWord.failLevel || 0) + 1;
 
         if (currentWord.failLevel === 1) {
-            // SAI LẦN 1: Chuyển nhanh (400ms)
-            document.getElementById('statusMessage').innerHTML = "<span style='color:var(--danger)'>Sai! (Thử lại sau)</span>";
-            sessionWords.push(sessionWords.shift());
-            document.getElementById('guessInput').disabled = true;
-            setTimeout(showNext, 400); 
-
-        } else if (currentWord.failLevel === 2) {
-            // SAI LẦN 2: Hiện định nghĩa, chuyển hơi chậm hơn (600ms)
-            document.getElementById('statusMessage').innerHTML = "<span style='color:var(--warning)'>Sai lần 2!</span>";
+            // --- SAI LẦN 1: ĐƯA TỪ VỀ CUỐI ---
+            document.getElementById('statusMessage').innerHTML = "<span style='color:var(--danger)'>Sai rồi! Từ này sẽ quay lại ở cuối vòng.</span>";
+            
+            // Đưa từ hiện tại xuống cuối mảng
             sessionWords.push(sessionWords.shift());
             
-            document.getElementById('hintBox').style.display = "block";
-            document.getElementById('hintBox').innerHTML = `<b>Định nghĩa:</b> ${currentWord.definition || "N/A"}`;
-
+            // Vô hiệu hóa input tạm thời và chuyển sang từ tiếp theo ngay
             document.getElementById('guessInput').disabled = true;
-          
+            setTimeout(showNext, 200); 
 
-        } else {
-            // SAI LẦN 3+: Dừng hẳn
-            document.getElementById('statusMessage').innerHTML = "<span style='color:var(--danger)'>Sai lần 3! Nhập lại đáp án:</span>";
-            document.getElementById('hintBox').style.display = "block";
+        } else if (currentWord.failLevel === 2) {
+            // --- SAI LẦN 2 (Khi từ đó quay lại): HIỆN ĐỊNH NGHĨA ---
+            document.getElementById('statusMessage').innerHTML = "<span style='color:var(--warning)'>Vẫn chưa đúng! Hãy xem định nghĩa bên dưới:</span>";
+            
+            // Hiện hộp gợi ý và không ẩn nữa
+            const hintBox = document.getElementById('hintBox');
+            hintBox.style.display = "block";
+            hintBox.innerHTML = `<b>📖 Định nghĩa:</b> ${currentWord.definition || "Chưa có định nghĩa cho từ này."}`;
+
+            // Không nhảy câu, để người dùng nhìn định nghĩa và gõ lại
+            document.getElementById('guessInput').value = "";
+            document.getElementById('guessInput').focus();
+            document.getElementById('guessInput').placeholder = "Nhìn định nghĩa và thử lại...";
+
+        } else if (currentWord.failLevel >= 3) {
+            // --- SAI LẦN 3: HIỆN ĐÁP ÁN CHÍNH XÁC ---
+            document.getElementById('statusMessage').innerHTML = "<span style='color:var(--danger)'>Sai lần 3! Đáp án chính xác là:</span>";
+            
+            const hintBox = document.getElementById('hintBox');
+            hintBox.style.display = "block";
+            
+            // Lấy đáp án tùy theo chế độ đang học
             let correctAns = (mode === 'meaning' || mode === 'timeattack') ? currentWord.meaning : currentWord.word;
-            document.getElementById('hintBox').innerHTML = `<b style="color:red">ĐÁP ÁN: ${correctAns}</b>`;
-            document.getElementById('guessInput').disabled = false;
+            hintBox.innerHTML = `<b style="color:red; font-size: 20px;">✅ ĐÁP ÁN: ${correctAns}</b>`;
+            
             document.getElementById('guessInput').value = ""; 
+            document.getElementById('guessInput').placeholder = "Gõ lại đáp án để vượt qua...";
             document.getElementById('guessInput').focus();
         }
     }
-
     function saveAndRender() {
         localStorage.setItem('flashcards', JSON.stringify(masterWords));
         updateStats();
@@ -613,9 +639,4 @@
     saveAndRender();
 </script>
 </body>
-
 </html>
-
-
-
-
