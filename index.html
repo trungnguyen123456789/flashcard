@@ -174,7 +174,7 @@
             </div>
 
             <div class="chat-area">
-                <label style="font-size: 14px; font-weight: bold; color: #555;">💬 Chat Nhập Vai với AI:</label>
+                <label style="font-size: 14px; font-weight: bold; color: #555;">💬 Chat với AI:</label>
                 <div id="chat-log"><div class="msg-ai">AI: Chào bạn! Hãy thử đặt câu với những từ bạn đã học nhé!</div></div>
                 <div style="display: flex; gap: 5px;">
                     <input type="text" id="chatInput" placeholder="Nhập câu tiếng Anh..." style="margin:0">
@@ -330,25 +330,86 @@
         }, TIME_LIMIT * 1000);
     }
 
-    async function chatWithAI() {
-        const input = document.getElementById('chatInput');
-        const text = input.value.trim();
-        if(!text) return;
-        appendMsg(text, 'msg-user');
-        input.value = "";
-        const learned = masterWords.map(w => w.word).join(", ");
-        const prompt = `Friendly teacher response to "${text}". Mention one of these if possible: ${learned}`;
-        try {
-            const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}`);
-            appendMsg(await res.text(), 'msg-ai');
-        } catch(e) { appendMsg("Lỗi AI.", 'msg-ai'); }
+    // --- HÀM CHAT VỚI AI (HIỆU ỨNG CHỮ CHẠY TỪNG CHỮ) ---
+async function chatWithAI() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if(!text) return;
+    
+    // 1. Hiện tin nhắn của Bạn ngay lập tức
+    appendMsg(text, 'msg-user');
+    input.value = "";
+    
+    // Gửi kèm danh sách từ đã học để AI phản hồi thông minh hơn
+    const learned = masterWords.map(w => w.word).join(", ");
+    const prompt = ` You are a friendly English teacher. Reply to: "${text}" in English. 
+    Occasionally, use one of these words if it fits naturally in the conversation: ${learned}. 
+    Don't force them. Keep the response short, supportive, and conversational.`;
+    
+    try {
+        // 2. Gọi API (Sử dụng pollinations.ai miễn phí)
+        const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}`);
+        const aiResponse = await res.text();
+        
+        // 3. Gọi hàm chạy chữ cho câu trả lời của AI
+        typeWriter(aiResponse);
+    } catch(e) { 
+        appendMsg("Lỗi kết nối AI rồi, bạn thử lại nhé!", 'msg-ai'); 
     }
+}
 
-    function appendMsg(txt, cls) {
-        const log = document.getElementById('chat-log');
-        log.innerHTML += `<div class="${cls}">${cls==='msg-ai'?'AI: ':'Bạn: '}${txt}</div>`;
-        log.scrollTop = log.scrollHeight;
+// HÀM HIỆU ỨNG MÁY ĐÁNH CHỮ (TYPEWRITER)
+function typeWriter(text) {
+    const log = document.getElementById('chat-log');
+    
+    // Tạo một thẻ div mới cho tin nhắn AI
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'msg-ai';
+    msgDiv.style.marginBottom = "10px";
+    msgDiv.innerHTML = `<b>AI: </b><span class="typing-content"></span>`;
+    log.appendChild(msgDiv);
+    
+    const contentSpan = msgDiv.querySelector('.typing-content');
+    let i = 0;
+    const speed = 40; // Tốc độ chạy chữ (ms). Giảm xuống 20 nếu muốn nhanh hơn.
+
+    function typing() {
+        if (i < text.length) {
+            // Lấy từng ký tự
+            let char = text.charAt(i);
+            
+            // Xử lý xuống dòng nếu AI trả về \n
+            if (char === '\n') {
+                contentSpan.innerHTML += '<br>';
+            } else {
+                contentSpan.innerHTML += char;
+            }
+            
+            i++;
+            // Tự động cuộn khung chat xuống dưới cùng để luôn thấy chữ mới
+            log.scrollTop = log.scrollHeight;
+            
+            // Đệ quy để tạo hiệu ứng trễ
+            setTimeout(typing, speed);
+        }
     }
+    
+    typing();
+}
+
+// Hàm phụ để hiện tin nhắn User (hiện ngay lập tức)
+function appendMsg(txt, cls) {
+    const log = document.getElementById('chat-log');
+    const label = (cls === 'msg-ai') ? 'AI' : 'Bạn';
+    log.innerHTML += `<div class="${cls}" style="margin-bottom: 10px;"><b>${label}: </b>${txt}</div>`;
+    log.scrollTop = log.scrollHeight;
+}
+// Giữ lại hàm appendMsg đơn giản cho tin nhắn của User
+function appendMsg(txt, cls) {
+    const log = document.getElementById('chat-log');
+    log.innerHTML += `<div class="${cls}"><b>${cls==='msg-ai'?'AI: ':'Bạn: '}</b>${txt}</div>`;
+    log.scrollTop = log.scrollHeight;
+}
 
     function cleanText(text) {
         const articles = ["con", "cái", "chiếc", "những", "một", "vài", "các", "a", "an", "the"];
@@ -640,4 +701,5 @@
 </script>
 </body>
 </html>
+
 
